@@ -1,0 +1,52 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:label="rentmyturf">
+
+        <!-- ✅ REQUIRED FOR GOOGLE SIGN IN -->
+        <meta-data
+            android:name="com.google.android.gms.auth.api.v2.clientId"
+            android:value="1042481604836-i02o48kqnn6p0c1tkps00iv9sb1npvra.apps.googleusercontent.com" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- Don't delete -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
+    </application>
+
+    <!-- REQUIRED for Android 11+ package query restrictions -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.signin.service.START"/>
+        </intent>
+    </queries>
+
+</manifest>
