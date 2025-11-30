@@ -4,33 +4,38 @@ import 'package:google_sign_in/google_sign_in.dart';
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static Future<UserCredential?> signInWithGoogle() async {
+  /// Google Sign-In for OWNER app
+  static Future<User?> signInWithGoogle() async {
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(
+      final GoogleSignInAccount? googleUser = await GoogleSignIn(
         scopes: ['email'],
-      );
+      ).signIn();
 
-      final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) return null;
+      if (googleUser == null) {
+        // user cancelled
+        return null;
+      }
 
-      final googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
 
-      // ---- FIXED AUTH CREDENTIALS ----
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
         accessToken: googleAuth.accessToken,
       );
 
-      return await _auth.signInWithCredential(credential);
+      final userCred = await _auth.signInWithCredential(credential);
+      return userCred.user;
     } catch (e) {
-      print("❌ Google Sign-In Failed: $e");
-      return null;
+      print('❌ Google sign-in error: $e');
+      rethrow;
     }
   }
 
-  static Future<void> logout() async {
-    await _auth.signOut();
+  /// Phone sign-in is handled on screens using verifyPhoneNumber
+  static Future<void> signOut() async {
     await GoogleSignIn().signOut();
+    await _auth.signOut();
   }
 
   static User? get currentUser => _auth.currentUser;
