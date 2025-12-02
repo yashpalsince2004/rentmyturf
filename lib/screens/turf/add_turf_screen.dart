@@ -7,6 +7,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../services/cloudinary_service.dart';
+
 class AddTurfScreen extends StatefulWidget {
   const AddTurfScreen({super.key});
 
@@ -85,7 +87,6 @@ class _AddTurfScreenState extends State<AddTurfScreen> {
     }
   }
 
-
   Future<void> saveTurf() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -112,8 +113,9 @@ class _AddTurfScreenState extends State<AddTurfScreen> {
       // Upload images
       List<String> imageUrls = [];
       for (var img in images) {
-        final url = await uploadImage(img, turfId);
+        final url = await CloudinaryService.uploadTurfImage(img);
         imageUrls.add(url);
+
       }
 
       // Save turf data into Firestore
