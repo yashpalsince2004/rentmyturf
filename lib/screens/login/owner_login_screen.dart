@@ -1,12 +1,7 @@
-import 'dart:ui';
-import 'dart:io' show Platform;
-import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../services/firebase_auth_service.dart';
-import 'package:sensors_plus/sensors_plus.dart';
-import 'dart:async';
+// lib/screens/auth/owner_login_screen.dart
 
+import 'package:flutter/material.dart';
+import '../../services/firebase_auth_service.dart';
 import '../../services/owner_service.dart';
 
 class OwnerLoginScreen extends StatefulWidget {
@@ -19,13 +14,6 @@ class OwnerLoginScreen extends StatefulWidget {
 class _OwnerLoginScreenState extends State<OwnerLoginScreen>
     with SingleTickerProviderStateMixin {
   String? _loadingProvider;
-  StreamSubscription? _gyroStream;
-
-  double _offsetX = 0;
-  double _offsetY = 0;
-  double smoothX = 0;
-  double smoothY = 0;
-
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -34,28 +22,12 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen>
   void initState() {
     super.initState();
 
-    const double smoothing = 0.05;
-
-    _gyroStream = gyroscopeEvents.listen((GyroscopeEvent e) {
-      double targetX = (e.y * 10).clamp(-22.0, 22.0);
-      double targetY = (e.x * 10).clamp(-22.0, 22.0);
-
-      smoothX = smoothX + (targetX - smoothX) * smoothing;
-      smoothY = smoothY + (targetY - smoothY) * smoothing;
-
-      if (mounted) {
-        setState(() {
-          _offsetX = smoothX;
-          _offsetY = smoothY;
-        });
-      }
-    });
-
-    _animController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+    // Simple entry animation
+    _animController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1000));
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
+      begin: const Offset(0, 0.1),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _animController,
@@ -65,7 +37,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen>
     _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _animController,
-        curve: const Interval(0.25, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
       ),
     );
 
@@ -74,7 +46,6 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen>
 
   @override
   void dispose() {
-    _gyroStream?.cancel();
     _animController.dispose();
     super.dispose();
   }
@@ -83,12 +54,21 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen>
     setState(() => _loadingProvider = "google");
     try {
       final result = await AuthService.signInWithGoogle();
+
+      // Check if result is null (User might have cancelled the popup)
       if (result != null && mounted) {
         await OwnerService.saveOwner();
         Navigator.pushReplacementNamed(context, "/dashboard");
+      } else {
+        // User cancelled selection
+        print("Google Sign In Cancelled by user");
       }
-    } catch (_) {
-      _showToast("Google Sign-In failed. Try again.", error: true);
+    } catch (e) {
+      // THIS IS THE IMPORTANT PART: Print the exact error to console
+      print("Google Sign-In Error Details: $e");
+
+      // Show the specific error in toast temporarily for debugging
+      if (mounted) _showToast("Error: ${e.toString()}", error: true);
     } finally {
       if (mounted) setState(() => _loadingProvider = null);
     }
@@ -97,7 +77,7 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen>
   void _showToast(String msg, {bool error = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: error ? Colors.redAccent.withOpacity(.8) : Colors.green,
+      backgroundColor: error ? Colors.redAccent : const Color(0xFF00E676),
       behavior: SnackBarBehavior.floating,
       margin: const EdgeInsets.all(18),
     ));
@@ -105,104 +85,112 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Theme Colors
+    final Color backgroundColor = const Color(0xFF121212); // Deep Matte Black
+    final Color cardColor = const Color(0xFF1E1E1E);       // Dark Grey
+    final Color accentColor = const Color(0xFF00E676);     // Electric Green
+
     return Scaffold(
-      extendBody: true,
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          // 🌿 Parallax Turf Background
-          Positioned.fill(
-            child: Transform.translate(
-              offset: Offset(_offsetX, _offsetY),
-              child: Transform.scale(
-                scale: 1.07,
-                child: Image.asset(
-                  "assets/images/turf_bg.png",
-                  fit: BoxFit.cover,
+      backgroundColor: backgroundColor,
+      body: Center(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Icon or Logo Placeholder
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.business_center_rounded, size: 40, color: accentColor),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    const Text(
+                      "Rent My Turf",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Manage your business efficiently.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // Google Button (Primary)
+                    _authButton(
+                      id: "google",
+                      label: "Continue with Google",
+                      icon: Icons.g_mobiledata_rounded, // or load a G-logo asset
+                      onTap: _handleGoogleLogin,
+                      bgColor: Colors.white,
+                      textColor: Colors.black,
+                      iconColor: Colors.black,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Phone Button (Secondary / Outline)
+                    _authButton(
+                      id: "phone",
+                      label: "Login with Phone",
+                      icon: Icons.phone_android_rounded,
+                      onTap: () => Navigator.pushNamed(context, "/phoneLogin"),
+                      bgColor: Colors.transparent,
+                      textColor: accentColor,
+                      iconColor: accentColor,
+                      isOutlined: true,
+                      borderColor: accentColor.withOpacity(0.5),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    GestureDetector(
+                      onTap: () => Navigator.pushReplacementNamed(context, "/dashboard"),
+                      child: Text(
+                        "Skip for now",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.4),
+                          fontSize: 13,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-
-          // 🔹 Frosted Login Card
-          Center(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 26),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: _glassLoginCard(),
-                ),
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _glassLoginCard() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(26, 42, 26, 34),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(.12),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withOpacity(.22), width: 1.4),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Rent My Turf",
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withOpacity(.95),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                "Manage • Earn • Grow",
-                style: TextStyle(color: Colors.white70, fontSize: 15),
-              ),
-
-              const SizedBox(height: 38),
-
-              _authButton(
-                id: "google",
-                label: "Continue with Google",
-                icon: Icons.g_mobiledata_rounded,
-                onTap: _handleGoogleLogin,
-              ),
-              const SizedBox(height: 16),
-
-              _authButton(
-                id: "phone",
-                label: "Login with Phone",
-                icon: Icons.phone_android_rounded,
-                onTap: () => Navigator.pushNamed(context, "/phoneLogin"),
-              ),
-
-              const SizedBox(height: 26),
-
-              GestureDetector(
-                onTap: () => Navigator.pushReplacementNamed(context, "/dashboard"),
-                child: Text(
-                  "Skip for now →",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(.75),
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
       ),
@@ -214,43 +202,50 @@ class _OwnerLoginScreenState extends State<OwnerLoginScreen>
     required String label,
     required IconData icon,
     required VoidCallback onTap,
+    required Color bgColor,
+    required Color textColor,
+    required Color iconColor,
+    bool isOutlined = false,
+    Color? borderColor,
   }) {
     final bool loading = _loadingProvider == id;
     final bool locked = _loadingProvider != null;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: locked ? null : onTap,
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          height: 54,
+          height: 56,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(.18),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(.25)),
+            color: isOutlined ? Colors.transparent : bgColor,
+            borderRadius: BorderRadius.circular(16),
+            border: isOutlined ? Border.all(color: borderColor!, width: 1.5) : null,
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: locked ? null : onTap,
-              child: Center(
-                child: loading
-                    ? const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white))
-                    : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, color: Colors.white),
-                    const SizedBox(width: 12),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                  ],
-                ),
+          child: Center(
+            child: loading
+                ? SizedBox(
+              width: 20, height: 20,
+              child: CircularProgressIndicator(
+                color: isOutlined ? textColor : Colors.black,
+                strokeWidth: 2,
               ),
+            )
+                : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: iconColor, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor
+                  ),
+                ),
+              ],
             ),
           ),
         ),
