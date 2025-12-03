@@ -1,9 +1,11 @@
 // lib/screens/dashboard/owner_dashboard.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../widgets/floating_nav_bar.dart';
-import '../turf/turf_slot_page.dart';
+import '../turf/manage_turf_page.dart';
+// import '../turf/turf_slot_page.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -23,30 +25,12 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     return user!.displayName!.split(" ").first;
   }
 
-  // --- LOGIC: If this list is empty, we show the "Add Turf Now" button ---
-  // I have commented out the data to simulate a new user with NO turfs.
-  // Uncomment the data inside to see the "List View".
-  final List<Map<String, String>> myTurfs = [
-    // {
-    //   "name": "Galaxy Sports Arena",
-    //   "address": "4th Floor, Globe Estate, Dombivli East",
-    //   "image": "",
-    //   "rating": "4.5"
-    // },
-    // {
-    //   "name": "Smash Turf",
-    //   "address": "Vikas Naka, New Kalyan Road",
-    //   "image": "",
-    //   "rating": "4.8"
-    // },
-  ];
-
   @override
   Widget build(BuildContext context) {
     // Theme Colors
-    final Color backgroundColor = const Color(0xFF121212); // Deep Matte Black
-    final Color cardColor = const Color(0xFF1E1E1E);       // Dark Grey
-    final Color accentColor = const Color(0xFF00E676);     // Electric Green
+    final Color backgroundColor = const Color(0xFF121212);
+    final Color cardColor = const Color(0xFF1E1E1E);
+    final Color accentColor = const Color(0xFF00E676);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -111,7 +95,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                       Expanded(
                         child: _statCard(
                           title: "Today's Bookings",
-                          value: "0", // dynamic data here later
+                          value: "0",
                           icon: Icons.confirmation_number_outlined,
                           color: Colors.blueAccent,
                           bgColor: cardColor,
@@ -121,7 +105,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                       Expanded(
                         child: _statCard(
                           title: "Total Earnings",
-                          value: "₹ 0", // dynamic data here later
+                          value: "₹ 0",
                           icon: Icons.attach_money_rounded,
                           color: accentColor,
                           bgColor: cardColor,
@@ -132,44 +116,70 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
                   const SizedBox(height: 40),
 
-                  // --- TURF LIST LOGIC ---
-                  if (myTurfs.isEmpty)
-                  // 1. EMPTY STATE (No Turfs)
-                    _buildEmptyState(accentColor)
-                  else ...[
-                    // 2. LIST STATE (Has Turfs)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Your Turfs",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        // Small "Add" button when list exists
-                        GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, "/addTurf"),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: cardColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: Icon(Icons.add, color: accentColor, size: 24),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Column(
-                      children: myTurfs.map((turf) => _buildTurfCard(turf, cardColor, accentColor)).toList(),
-                    ),
-                  ],
+                  // --- REAL-TIME TURF DATA STREAM ---
+                  StreamBuilder<QuerySnapshot>(
+                    // ⭐ FIXED QUERY: Uses 'ownerId' (camelCase) to match your DB
+                    stream: FirebaseFirestore.instance
+                        .collection('turfs')
+                        .where('ownerId', isEqualTo: user?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
 
+                      // 1. Loading State
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
+                      }
+
+                      // 2. Error State
+                      if (snapshot.hasError) {
+                        return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.white)));
+                      }
+
+                      // 3. Empty State (No Turfs found in DB)
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return _buildEmptyState(accentColor);
+                      }
+
+                      // 4. Data Exists - Show List
+                      var docs = snapshot.data!.docs;
+
+                      return Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Your Turfs",
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => Navigator.pushNamed(context, "/addTurf"),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: cardColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white12),
+                                  ),
+                                  child: Icon(Icons.add, color: accentColor, size: 24),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          // Map the documents to Cards
+                          ...docs.map((doc) {
+                            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                            return _buildTurfCard(data, cardColor, accentColor, context);
+                          }).toList(),
+                        ],
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -187,69 +197,47 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     );
   }
 
-  // ---------- EMPTY STATE WIDGET ----------
+  // ---------- WIDGETS ----------
+
   Widget _buildEmptyState(Color accentColor) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 40),
+          const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(30),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-                Icons.sports_soccer_rounded,
-                size: 80,
-                color: Colors.white.withOpacity(0.2)
-            ),
+            child: Icon(Icons.sports_soccer_rounded, size: 80, color: Colors.white.withOpacity(0.2)),
           ),
           const SizedBox(height: 20),
           const Text(
             "No Turf Added Yet",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             "List your turf to start getting bookings.",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
           ),
           const SizedBox(height: 30),
-
-          // BIG BUTTON: Add Your Turf Now
           SizedBox(
             width: double.infinity,
             height: 55,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, "/addTurf");
-              },
+              onPressed: () => Navigator.pushNamed(context, "/addTurf"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: accentColor,
-                foregroundColor: Colors.black, // Text Color
+                foregroundColor: Colors.black,
                 elevation: 10,
                 shadowColor: accentColor.withOpacity(0.4),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: const Text(
-                "Add Your Turf Now",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: const Text("Add Your Turf Now", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -257,14 +245,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     );
   }
 
-  // ---------- STAT CARD ----------
-  Widget _statCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    required Color bgColor,
-  }) {
+  Widget _statCard({required String title, required String value, required IconData icon, required Color color, required Color bgColor}) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -277,86 +258,63 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: 16),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white.withOpacity(0.5),
-            ),
-          ),
+          Text(title, style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5))),
         ],
       ),
     );
   }
 
-  // ---------- TURF CARD ----------
-  Widget _buildTurfCard(Map<String, String> turf, Color cardColor, Color accentColor) {
+  Widget _buildTurfCard(Map<String, dynamic> data, Color cardColor, Color accentColor, BuildContext context) {
+    // Safely extract data with fallbacks for different naming conventions
+    String name = data['turf_name'] ?? data['name'] ?? "Unnamed Turf";
+    String address = data['address'] ?? data['location'] ?? "No address provided";
+
+    // Handle Images safely
+    String? imageUrl;
+    if (data['images'] != null && (data['images'] is List) && (data['images'] as List).isNotEmpty) {
+      imageUrl = (data['images'] as List).first;
+    } else if (data['image'] is String) {
+      imageUrl = data['image'];
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       child: Column(
         children: [
-          // Image
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             child: Container(
               height: 150,
               width: double.infinity,
               color: Colors.grey[900],
-              child: turf["image"] != ""
-                  ? Image.asset(turf["image"]!, fit: BoxFit.cover)
-                  : const Center(
-                child: Icon(Icons.image, color: Colors.white24, size: 50),
-              ),
+              child: (imageUrl != null && imageUrl.isNotEmpty)
+                  ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
+              )
+                  : const Center(child: Icon(Icons.image, color: Colors.white24, size: 50)),
             ),
           ),
-
-          // Content
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  turf["name"] ?? "",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
+                Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 4),
-                Text(
-                  turf["address"] ?? "",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withOpacity(0.5),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(address, style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5)), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 16),
-
-                // Manage Button
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
@@ -364,20 +322,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => OwnerTurfSlotPage(
-                            turfName: turf["name"] ?? "",
-                            turfImage: turf["image"] ?? "",
-                          ),
+                          builder: (_) => ManageTurfPage(turfId: data['turfId']),
                         ),
                       );
+
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: accentColor,
                       side: BorderSide(color: accentColor.withOpacity(0.5)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text("Manage Turf"),
                   ),

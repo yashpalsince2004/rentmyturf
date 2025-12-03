@@ -59,8 +59,8 @@ dependencies:
   firebase_storage: ^13.0.4
 
 # LOCATION
-  geolocator: ^11.0.1
-  geocoding: ^3.0.0
+  geolocator: ^13.0.1  # For getting GPS coordinates
+  geocoding: ^3.0.0    # For converting GPS to City Name
 
 # IMAGEKIT/CLOUDNARY
   cloudinary_api: ^1.1.1
